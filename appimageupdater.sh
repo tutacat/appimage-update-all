@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 shopt -s dotglob
 # disable graphics
 DISPLAY=""
