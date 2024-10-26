@@ -10,10 +10,10 @@ if [ "$?" -gt 0 ]; then
     exit 1;
 fi;
 
-updater="$(ls $HOME/Applications/appimageupdatetool*.AppImage | head)";
+updater="$(ls $HOME/Applications/AppImageUpdate*.AppImage | head)";
 
 if [ ! -f "$updater" ]; then
-    echo "Warning, missing file appimageupdatetool*.Appimage" >&2
+    echo "Warning, missing file AppImageUpdate*.Appimage" >&2
     updater="./"*?"pdate"*".AppImage";
 fi;
 if [ ! -f "$updater" ]; then
