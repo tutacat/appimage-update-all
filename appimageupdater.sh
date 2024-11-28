@@ -1,16 +1,19 @@
 #!/bin/bash
 shopt -s dotglob
 # disable graphics
-DISPLAY=""
-WAYLAND_DISPLAY=""
+QT_QPA_PLATFORM=offscreen
+unset DISPLAY WAYLAND_DISPLAY
 
-cd "$HOME/Applications"
+if ! [ "$@" ]; then
+    cd "$HOME/Applications";
+    set -- $(find . -maxdepth 1 -iname "*.appimage")
+fi
 if [ "$?" -gt 0 ]; then
     echo "No ~/Applications directory." >&2
     exit 1;
 fi;
 
-updater="$(ls $HOME/Applications/AppImageUpdate*.AppImage | head)";
+updater="$(ls $HOME/Applications/appimageupdatetool*.AppImage | head)";
 
 if [ ! -f "$updater" ]; then
     echo "Warning, missing file AppImageUpdate*.Appimage" >&2
@@ -24,8 +27,8 @@ echo "Found AppImage update tool."
 
 "$updater" --self-update
 
-for app in ./*.AppImage; do
-    if ! [[ "$(basename "$updater")" = "$(basename "$app")" -o "$(basename "$app")" =~ '\bold\b' ]]; then
+for app in "$@"; do
+    if ! [[ "$(basename "$updater")" = "$(basename "$app")" ]] || [[ "$(basename "$app")" =~ '\bold\b' ]]; then
         "$updater" "$app";
     fi;
 done;
