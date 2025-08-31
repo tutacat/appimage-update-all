@@ -1,12 +1,12 @@
 #!/bin/bash
+shopt -s nocaseglob
 shopt -s dotglob
 # disable graphics
 QT_QPA_PLATFORM=offscreen
 unset DISPLAY WAYLAND_DISPLAY
 
-echo >&2 "- AppImUpp -
-
-* --   loading +"
+echo >&2 "- AppImUpp -"
+echo >&2 "* --   loading +"
 
 # options
 Files=()
