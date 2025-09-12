@@ -14,26 +14,29 @@ APPS_DIR="${HOME}/Applications"
 EXE="$(basename "$0")"
 
 function Help() {
-  echo >&2 -e "usage: '${EXE}' [option(s)] [file(s)]"
-  echo "    ${APP_NAME} updates all the AppImages in your Applications directory, or the specified AppImage files."
-  echo '  -h --help        Show this help.'
-  echo '  -O --overwrite   Overwrite the original AppImage [Overwrite=y]'
-  echo '  file(s)          Update this file or files.'
-  echo '  --update-tool    Set the path for appimage update tool [Updater=...]'$'\n\n''  AppImageUpdate is provided by AppImage-Community and TheAssassin under the MIT License'
-  echo '  --apps-dir       Set applications directory to search for AppImages.'
-  echo '  --save           Save options to config.' 
-  echo '  https://github.com/AppImageCommunity/AppImageUpdate.git/'
-  echo "Config is stored at \$XDG_CONFIG_HOME or \$HOME: ${APP_SETTINGS}"
+    echo >&2 -e "usage: '${EXE}' [option(s)] [file(s)]"
+    echo "    ${APP_NAME} updates all the AppImages in your Applications directory, or the specified AppImage files."
+    echo '  -h --help        Show this help.'
+    echo '  -O --overwrite   Overwrite the original AppImage [Overwrite=y]'
+    echo '  file(s)          Update this file or files.'
+    echo '  --update-tool    Set the path for appimage update tool [Updater=...]'$'\n\n''  AppImageUpdate is provided by AppImage-Community and TheAssassin under the MIT License'
+    echo '  --apps-dir       Set applications directory to search for AppImages.'
+    echo '  --save           Save options to config.' 
+    echo '  https://github.com/AppImageCommunity/AppImageUpdate.git/'
+    echo "Config is stored at \$XDG_CONFIG_HOME or \$HOME: ${APP_SETTINGS}"
 }
 
 
 mkdir -p "${APP_CONFDIR}"
-grep "=" "${APP_SETTINGS}" | sed -E 's/ ?= ?/=/' | while read line; do
-  set "$line"
+grep '=' ${APP_SETTINGS}" \
+| grep -Ev '^ *^\[' \
+| sed -E 's/ ?= ?/=/; s/#.*$//' \
+| while read line; do
+    set "$line";
 done
 export LC_COLLATE=C
 if [ -z "$Updater" ]; then
-    Updater="`ls "$HOME/Applications"/*{appimageupdatetool,AppImageUpdate}*.appimage | head -1`"
+  Updater="`ls "$HOME/Applications"/*{"appimageupdatetool","AppImageUpdate"}*.AppImage | head -1`"
 fi
 Done=""
 
@@ -57,6 +60,9 @@ while [ -n "$1" ]; do
                 --updater-path=*)
                   Updater="${1#*=}"
                   ;;
+                  
+                --apps-dir)
+                  APPS_DIR=
 	        *)
 	          echo >&2 -e "${EXE}: unrecognized option '$1'.\\nTry --help for more information."
 	          exit 1
@@ -87,13 +93,15 @@ while [ -n "$1" ]; do
 done
 
 (
-  echo "Updater=$Updater"
-  echo "Overwrite=$Overwrite"
+    echo "Updater=$Updater"
+    echo "Overwrite=$Overwrite"
 ) > "${APP_SETTINGS}"
+
 if ! [ "${#Files[@]}" -eq 0 ]; then
   cd "$HOME/Applications"
     FILES+=("$(find . -maxdepth 1 -iname '*.appimage')")
 fi
+
 if [ "$?" -gt 0 ]; then
     echo >&2 "No ~/Applications directory."
     exit 1
@@ -109,13 +117,13 @@ ls "$HOME/Applications/AppImageUpdate"*".AppImage" | head --lines=-1 -z
     fi
 fi
 if [ ! -e "$Updater" ]; then
-  echo 'AppImUp: warning: missing file appimageupdatetool*.Appimage' >&2
-  updater2="./"*?"pdate"*".?pp?mage"
+    echo 'AppImUp: warning: missing file appimageupdatetool*.Appimage' >&2
+    updater2="./"*?"pdate"*".?pp?mage"
 fi
 if [ ! -f "$updater2" ]; then
-  echo "And no AppImage called '*pdate*' found." >&2
+    echo "And no AppImage called '*pdate*' found." >&2
 
-exit 254
+    exit 254
 fi
 echo "Found AppImage update tool."
 
