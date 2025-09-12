@@ -1,5 +1,6 @@
 #!/usr/bin/bash
 # AppImUp.sh
+
 set -u
 shopt -s nocaseglob
 
