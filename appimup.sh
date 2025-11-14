@@ -7,28 +7,35 @@ XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
 APP_NAME="AppImUp"
 APP_CONFDIR="${XDG_CONFIG_HOME}/${APP_NAME}"
 APP_SETTINGS="${APP_CONFDIR}/settings.conf"
-APPS_DIR="${HOME}/Applications"
+AppsDir="${HOME}/Applications"
 EXE="$(basename "$0")"
 LS_ARGS='-t --time=mtime'
 GITHUB_TOKEN="${GITHUB_TOKEN-}"
 
 function Help() {
-    echo >&2 -e "usage: '${EXE}' [option(s)] [file(s)]"
-    echo >&2 "    ${APP_NAME} updates all the AppImages in your Applications directory, or the specified AppImage files."
-    echo >&2 "Short options: only one option per arg supported (for forwarding options)."
-    echo >&2 "^Forwarded args must use =, short options, or optionless."
-    echo >&2 '  -h --help        Show this help.'
-    echo >&2 '  -O --overwrite   Overwrite the original AppImage [Overwrite=y]'
-    echo >&2 '  file(s)          Update this file or files.'
-    echo >&2 '  --update-tool    Set the path for appimage update tool [Updater=...]'$'\n\n''  AppImageUpdate is provided by AppImage-Community and TheAssassin under the MIT License'
-    echo >&2 '  --apps-dir       Set applications directory to search for AppImages.'
-    echo >&2 '  --save           Save options to config.'
-    echo >&2 '  https://github.com/AppImageCommunity/AppImageUpdate.git/'
-    echo >&2 "Config is stored at (\$XDG_CONFIG_HOME or \$HOME/.config): ${APP_SETTINGS}"
-    if [ -n "${Updater-}" ]; then
+    cat >&2 <<EOF_HELP
+usage: '${EXE}' [option(s)] [file(s)]
+    ${APP_NAME} updates all the AppImages in your Applications directory, or the specified AppImage files.
+Short options: only one option per arg supported (for forwarding options).
+^Forwarded args must use =, short options, or optionless.
+  -h --help        Show this help.
+  -O --overwrite   Overwrite the original AppImage [Overwrite=y]
+  file(s)          Update this file or files.
+  --update-tool    Set the path for appimage update tool [Updater=...]
+  --apps-dir       Set applications directory to search for AppImages.
+  --save           Save options to config.
+  --is-pie-exe     Assume the updater is a PIE executable even if \`file\` doesn't
+
+* appimageupdatetool is provided by AppImage-Community and TheAssassin under the MIT License
+  * https://github.com/AppImageCommunity/AppImageUpdate/#readme
+    Config is stored at (\$XDG_CONFIG_HOME or \$HOME/.config): ${APP_SETTINGS}
+EOF_HELP
+    if [[ -n "${Updater-}" ]]; then
+      if [[ "${Updater}" ~= ^AppImageUpdate\b ]]; then
+        echo >&2 "$0: Help: Graphical updater doesn't provide CLI help."
       "$Updater" --help | tail -n +10
     else
-      echo >&2 "$0: Help: Updater not found.";
+      echo >&2 "$0: Help: couldn't show updater CLI help, as exe was not found.";
     fi
 }
 function Version() {
@@ -40,6 +47,27 @@ function Version() {
     exit 0
 }
 
+function text_exe() {
+  if [ -n "$1" ]; then
+    if [ -e "$1" ]; then
+      if [ -x "$1" ]; then
+        if [ -n "${IsPie}" -o "$(file -b --mime-type)" == "application/x-pie-executable" ]; then
+          return 0
+        else
+          echo >&2 "$0: Search: Updater is not of a known executable type."
+        fi
+      else
+        echo >&2 "$0: Search: Updater is not executable.";
+    else
+      echo >&2 "$0: Search: Updater found but path doesn't exist.";
+      >&2 readlink -fv "${Updater-}"
+    fi
+  else
+    echo >&2 "$0: Search: Updater not found.";
+  fi
+  return 1
+}
+
 
 mkdir -p "${APP_CONFDIR}"
 grep '=' "${APP_SETTINGS}" \
@@ -49,19 +77,21 @@ grep '=' "${APP_SETTINGS}" \
     set "${line-}";
 done
 export LC_COLLATE=C
-if [ ! -e "${Updater-}" ]; then
-  Updater="`ls $LS_ARGS "$HOME/Applications"/*appimageupdatetool*.AppImage | head -1`"
-  if [ ! -e "${Updater-}" ]; then
-    Updater="`ls $LS_ARGS "$HOME/Applications"/*AppImageUpdate*.AppImage | head -1`"
-    if [ -e "${Updater-}" ]; then
-        echo >&2 "$0: You have the graphical-only version of AppImageUpdate.AppImage"
-        echo >&2 '$0: If you want silent/headless operation, please use (appimageupdatetool*.AppImage) instead.'
-    fi
+if [ ! -x "${Updater-}" ]; then
+  Updater="`ls $LS_ARGS "${AppsDir}"/*appimageupdatetool*.AppImage | head -1`"
+  if [ ! -x "${Updater-}" ]; then
+    Updater="`ls $LS_ARGS "${AppsDir}"/*AppImageUpdate*.AppImage | head -1`"
+    if [ -x "${Updater-}" ]; then
+        echo >&2 "$0: Search: You only have the graphical version of AppImageUpdate"
+        echo >&2 '    If you want silent/headless operation, please use (appimageupdatetool*.AppImage) instead.'
+    else
   fi
 fi
 Done=""
 
 QueueAction=""
+
+IsPie=""
 
 Files=()
 OtherOpts=()
@@ -84,8 +114,11 @@ while [ -n "${1-}" ]; do
                   ;;
 
                 --apps-dir)
-                  APPS_DIR="${2}"
+                  AppsDir="${2}"
                   shift
+                  ;;
+                --is-pie-exe)
+                  IsPie=y
                   ;;
 	        *)
                   OtherOpts+=("$1")
@@ -126,21 +159,23 @@ done
 (
     echo "Updater=${Updater-}"
     echo "Overwrite=${Overwrite-}"
+    echo "AppsDir=${AppsDir-}"
+    echo "IsPie=${IsPie-}"
 ) > "${APP_SETTINGS}"
 
 if ! [ "${#Files[@]}" -eq 0 ]; then
-  cd "$HOME/Applications"
+  cd "${AppsDir}"
     FILES+=("$(find . -maxdepth 1 -iname '*.appimage')")
 fi
 
 if [ "$?" -gt 0 ]; then
-    echo >&2 "$0: No ~/Applications directory."
+    echo >&2 "$0: No ${AppsDir} directory."
     exit 1
 fi
 
 if [ ! -e "${Updater-}" ]; then
     Updater="$(
-ls "$HOME/Applications/AppImageUpdate"*".AppImage" | head --lines=-1 -z
+ls "${AppsDir}/AppImageUpdate"*".AppImage" | head --lines=-1 -z
 )"
 fi
 if [ ! -e "${Updater-}" ]; then
@@ -148,7 +183,7 @@ if [ ! -e "${Updater-}" ]; then
     updater2="./"*"pdate"*".appimage"
 
     if [ ! -f "${updater2}" ]; then
-        echo >&2 "$0: no AppImage called '*pdate*' found in ~/Applications." >&2
+        echo >&2 "$0: no AppImage called '*pdate*' found in \~/Applications." >&2
         exit 254
     fi
 fi
